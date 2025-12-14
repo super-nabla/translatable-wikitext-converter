@@ -724,15 +724,15 @@ def convert_to_translatable_wikitext(wikitext):
     processed_parts = [handler(part) for part, handler in _parts]            
     
     # Debug output
-    """
+    #"""
     print("Processed parts:")
     for i, (ppart, (part, handler)) in enumerate(zip(processed_parts, _parts)):
         print(f"--- Start element {i} with handler {handler.__name__} ---")
-        print(part)
+        print(f"@{part}@")
         print(f"---\n") 
-        print(ppart)  
+        print(f'@{ppart}@')  
         print(f"---\n") 
-    """
+    #"""
     
-    # Join the processed parts into a single string
-    return ''.join(processed_parts)[1:]  # Remove the leading newline added at the beginning
+    # Join the processed parts into a single string and remove extra leading newline
+    return ''.join(processed_parts).lstrip('\n')

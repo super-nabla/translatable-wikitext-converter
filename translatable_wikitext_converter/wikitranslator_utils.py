@@ -6,6 +6,9 @@
 
 import re, sys
 
+# Pattern to identify section headers (Level 2 or higher)
+SECTION_HEADER_PATTERN = re.compile(r'(={2,})\s*(.+?)\s*\1', re.DOTALL)
+
 # --- Helper Functions for Processing Different Wikitext Elements ---
 # These functions are designed to handle specific wikitext structures.
 # Some will recursively call the main `convert_to_translatable_wikitext`
@@ -40,14 +43,18 @@ def is_emoji_unicode(char):
 
 def _wrap_in_translate(text):
     """
-    Wraps the given text with <translate> tags, preserving leading/trailing whitespace.
+    Wraps the text with <translate> tags.
+    If the content starts or ends with a section header, it includes the preceding
+    or succeeding newline in the translation block.
     """
     if not text or not text.strip():
         return text
 
-    # Logic for finding non-whitespace content (as defined in your current code)
+    # 1. Find the indices of the non-whitespace content
     first_char_index = -1
     last_char_index = -1
+    
+    # We loop to find the first/last character that is NOT whitespace
     for i, char in enumerate(text):
         if char not in (' ', '\n', '\t', '\r', '\f', '\v'):
             if first_char_index == -1:
@@ -55,14 +62,51 @@ def _wrap_in_translate(text):
             last_char_index = i
 
     if first_char_index == -1:
+        # If no non-whitespace characters are found, return the original text
         return text
 
+    # Initial split
     leading_whitespace = text[:first_char_index]
     content = text[first_char_index : last_char_index + 1]
     trailing_whitespace = text[last_char_index + 1 :]
+    
+    # 2. Initial adjustment (To include the newline above the header)
+    
+    # We check if the content starts with a section header
+    # (We use .match() on content to see if the header is at the very beginning)
+    match_start = SECTION_HEADER_PATTERN.match(content)
+    
+    if match_start and leading_whitespace.endswith('\n'):
+        # If there is a header and the line above is a '\n', we move the '\n' from leading to content
+        
+        # We subtract the '\n' from leading_whitespace
+        leading_whitespace = leading_whitespace[:-1] 
+        
+        # We recalculate content to include the preceding '\n'
+        content = text[first_char_index - 1 : last_char_index + 1]
+        
+        # We update first_char_index for subsequent calculations (even if not used here)
+        first_char_index -= 1
 
+
+    # 3. Final adjustment (To include the newline below the header)
+
+    # We find the last match (to see if the header finishes the content block)
+    last_match = None
+    for m in SECTION_HEADER_PATTERN.finditer(content):
+        last_match = m
+        
+    if last_match and last_match.end() == len(content) and trailing_whitespace.startswith('\n'):
+        # If the header is the last thing and the subsequent block starts with '\n', we include it
+        
+        # We remove the '\n' from trailing_whitespace
+        trailing_whitespace = trailing_whitespace[1:]
+        
+        # We extend content to include the subsequent '\n'
+        content = text[first_char_index : last_char_index + 2] # +2 because index is 0-based
+
+    # 4. Returning the result
     return f"{leading_whitespace}<translate>{content}</translate>{trailing_whitespace}"
-
 
 ############################################
 # Functions for Fixing Wiki Page Spacing #
@@ -74,7 +118,7 @@ def fix_section_title_spacing_internal(title: str) -> str:
     between the '=' characters and the title text.
     """
     # Pattern: (={2,}) [optional space] (.+?) [optional space] \1
-    pattern = re.compile(r'(={2,})\s*(.+?)\s*\1', re.DOTALL)
+    pattern = SECTION_HEADER_PATTERN
 
     # Replacement: \1 [space] \2 [space] \1
     return pattern.sub(r'\1 \2 \1', title)
