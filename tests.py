@@ -1,5 +1,5 @@
 import unittest
-from app import convert_to_translatable_wikitext, process_double_brackets
+from app import convert_to_translatable_wikitext
 
 class TestTranslatableWikitext(unittest.TestCase):
 
